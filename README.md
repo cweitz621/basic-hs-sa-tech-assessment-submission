@@ -83,11 +83,25 @@ You should see:
 
 **To stop the server:** Press `Ctrl+C`
 
-#### 6. Set Up HubSpot Workflow for Breezy Subscriptions
+#### 6. Set Up Breezy Subscription Creation
 
-**Important**: The Breezy Subscriptions displayed in the admin panel are created by HubSpot workflows, not directly by this application. You need to set up a workflow in HubSpot that creates subscription records in the custom "Breezy Subscriptions" object.
+**Important**: The Breezy Subscriptions displayed in the admin panel can be created in two ways:
 
-**Steps to Create the Workflow:**
+**Option A: HubSpot Workflows (Recommended for API Call Management)**
+- Using HubSpot workflows to create subscriptions helps manage API call limits
+- Workflows run server-side in HubSpot, reducing the number of API calls from your application
+- This is the recommended approach if you're concerned about HubSpot API rate limits
+- Set up a workflow in HubSpot that creates subscription records in the custom "Breezy Subscriptions" object
+
+**Option B: Direct API Calls**
+- If preferred, you can create subscriptions directly via API calls from your application
+- This gives you more control but uses more API calls
+- You would need to add an endpoint to create subscription records using the HubSpot Custom Objects API
+- Example: `POST /crm/v3/objects/breezy_subscriptions` (using object ID `2-53381506`)
+
+**For this POC, we demonstrate Option A (workflows)** to show how you can reduce API call volume. In production, choose the approach that best fits your needs, rate limits, and control requirements.
+
+**Steps to Create the Workflow (Option A):**
 
 1. **Navigate to Workflows**:
    - Go to **Automation** → **Workflows** in your HubSpot account
@@ -170,10 +184,14 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 1. **Sync Customer Data**: Automatically create HubSpot contacts when customers purchase thermostats or sign up for trials
 2. **Track Hardware Purchases**: Create deals in HubSpot's "Order Pipeline" with associated line items for thermostat purchases
 3. **Manage Trial Signups**: Create trial deals with line items that include billing frequency and pricing information
-4. **Monitor Subscriptions**: Display subscription status from HubSpot's custom "Breezy Subscriptions" object (created by HubSpot workflows when trials convert)
+4. **Monitor Subscriptions**: Display subscription status from HubSpot's custom "Breezy Subscriptions" object
 5. **AI-Powered Insights**: Generate customer health insights using Google Gemini AI, with recommendations for HubSpot AI tools
 
-**Important Note**: Breezy Subscription records are created by HubSpot workflows (not directly by this application). When a trial deal moves to "Converted" stage, a HubSpot workflow should create the corresponding subscription record in the "Breezy Subscriptions" custom object. See Setup Instructions section 6 for workflow configuration details.
+**Important Note**: Breezy Subscription records can be created in two ways:
+- **HubSpot Workflows** (demonstrated in this POC): When a trial deal moves to "Converted" stage, a HubSpot workflow creates the subscription record. This approach helps manage API call limits since workflows run server-side in HubSpot.
+- **Direct API Calls**: Alternatively, subscriptions can be created directly via API calls from your application, giving more control but using more API quota.
+
+This POC demonstrates the workflow approach to show how you can reduce API call volume. In production, choose the approach that best fits your needs, rate limits, and control requirements. See Setup Instructions section 6 for both options.
 
 ### Key Features
 
