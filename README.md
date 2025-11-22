@@ -191,9 +191,9 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 ### Key Features
 
-- **Contact Management**: Create and view contacts 
+- **Contact Management**: Create and view contacts. Optionally include Thermostat purchases which create deals and reflect in the table.
 - **Deal Tracking**: Separate pipelines for hardware purchases (Hardware Pipeline) and trials (Default Pipeline)
-- **Line Item Integration**: Automatic creation of products and line items for thermostats and premium subscriptions
+- **Line Item Integration**: Automatic creation of line items for thermostats and premium subscriptions
 - **Custom Object Integration**: Read subscription data from HubSpot custom objects
 - **AI Customer Health**: Generate insights with specific HubSpot AI tool recommendations
 - **Error Handling**: User-friendly error messages for common issues (e.g., duplicate emails)
@@ -215,24 +215,33 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 - **Google Gemini 2.0 Flash (Experimental)**: Used for generating customer health insights
 - **Google Gemini**: Used in conjunction with Mermaid to generate the Entity Relationship Diagram (ERD) for the HubSpot data architecture
+- **Cursor AI**: Used as the primary AI coding assistant throughout the development process
 
 ### What Tasks Did You Use AI For?
 
-1. **Customer Health Analysis**: 
-   - Analyzing customer data (hardware purchases, trial activity, subscription status)
-   - Generating likelihood to upgrade scores
-   - Assessing churn risk
-   - Providing actionable recommendations
+1. **Code Development and Implementation**:
+   - Used Cursor AI as the primary coding assistant throughout the entire project
+   - Generated initial code structure for Express.js backend and frontend components
+   - Implemented HubSpot API integrations (contacts, deals, line items, custom objects)
+   - Built AI insight feature integration with Gemini API
+   - Refactored codebase structure (separating CSS/JS files)
+   - Debugged API errors and integration issues (line item associations, duplicate email handling, pipeline stage loading)
+   - Implemented error handling and user feedback mechanisms
+   - Created responsive UI components and styling
+   - Created searchable dropdown functionality for contact selection
 
-2. **HubSpot AI Tool Recommendations**:
-   - Suggesting specific HubSpot AI tools (Content Writer, ChatSpot, Email Assistant, Workflows, etc.)
-   - Connecting insights to tactical execution methods
-   - Providing context-aware recommendations based on customer profile
-
-3. **Documentation and Diagram Generation**:
+2. **Documentation and Diagram Generation**:
    - Used Google Gemini to generate Mermaid diagram code for the Entity Relationship Diagram (ERD)
    - Gemini helped structure the complex relationships between HubSpot objects (Contacts, Deals, Line Items, Products, Custom Objects)
    - Mermaid rendered the diagram into a visual representation of the data architecture
+   - Used Cursor AI to help write and structure the README documentation
+   - Generated code examples and explanations for documentation
+
+3. **Problem Solving and Learning**:
+   - Used Cursor AI to understand HubSpot API patterns and best practices
+   - Got help troubleshooting integration challenges (custom object queries, deal associations, line item creation)
+   - Learned about Express.js patterns, error handling, and async/await best practices
+   - Received guidance on UI/UX improvements and responsive design patterns
 
 ### What Did You Learn? What Was Challenging?
 
@@ -253,26 +262,33 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 ### How Did AI Help (or Not Help)?
 
 **How AI Helped:**
-- **Pattern Recognition**: AI excels at identifying patterns across multiple data points (purchase history, trial activity, time-based signals)
-- **Contextual Recommendations**: AI can synthesize complex customer data into actionable insights that would require manual analysis
-- **Scalability**: AI can analyze any number of customers without additional code changes
-- **Natural Language**: AI generates human-readable justifications that are easy for sales/marketing teams to understand
+- **Rapid Development**: Cursor AI significantly accelerated development by generating boilerplate code, API integration patterns, and common functionality
+- **Learning and Understanding**: AI helped me quickly understand HubSpot API patterns, Express.js best practices, and JavaScript async/await patterns without extensive documentation reading
+- **Debugging Support**: When encountering errors (like line item association issues, API 404s, or parsing problems), Cursor helped identify root causes and suggest fixes
+- **Code Refactoring**: AI assisted in restructuring code (separating CSS/JS files) and improving code organization
+- **Documentation Generation**: Gemini and Cursor helped generate comprehensive documentation, ERD diagrams, and code explanations
+- **Problem Solving**: AI provided alternative approaches when initial implementations didn't work (e.g., trying different API endpoints for associations)
+- **Time Savings**: Reduced time spent on repetitive tasks, allowing focus on higher-level architecture and business logic
 
-**Limitations Encountered:**
-- **API Quotas**: Free tier has strict rate limits, requiring careful error handling
-- **Consistency**: Sometimes responses vary in format, requiring robust parsing
-- **Cost Considerations**: For production, would need to consider API costs vs. building rule-based logic
-- **Latency**: AI API calls add ~1-2 seconds to the user experience
+**Limitations and Challenges:**
+- **Missing Business Requirements**: A significant challenge was not knowing the customer's specific business requirements and not being able to conduct a full discovery session/s. This required making assumptions about Breezy's needs, workflows, and priorities, which may not align with their actual requirements
+- **Code Review Needed**: Generated code sometimes required review and adjustment to match project requirements
+- **Context Understanding**: Sometimes needed to provide additional context or clarify requirements when AI misunderstood the task
+- **Error Handling**: AI-generated code sometimes lacked comprehensive error handling, requiring manual additions
+- **Best Practices**: Had to verify that AI suggestions followed best practices and weren't just "working" solutions
 
 **When AI Was Most Valuable:**
-- Analyzing complex customer profiles with multiple data points
-- Providing nuanced recommendations that consider multiple factors simultaneously
-- Generating explanations that help sales/marketing teams understand the "why" behind recommendations
+- Initial project setup and scaffolding
+- Debugging complex integration issues
+- Generating documentation and diagrams
+- Implementing UI components with proper styling
 
-**When Traditional Logic Would Be Better:**
-- Simple if/then rules (e.g., "if trial ends in 3 days, send reminder")
-- High-frequency operations where latency matters
-- Operations requiring 100% consistency and predictability
+**When I Needed to Rely More on Manual Work:**
+- Understanding business requirements and translating them to code
+- Making architectural decisions about data flow and structure
+- Testing and validating that features worked as expected
+- Ensuring code quality and maintainability
+- Making final decisions on user experience and design choices
 
 ---
 
