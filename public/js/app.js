@@ -151,7 +151,6 @@ async function loadContacts() {
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Email</th>
-                            <th>Job Title</th>
                             <th>Company</th>
                             <th>Thermostat Purchases</th>
                             <th>Trials</th>
@@ -173,7 +172,6 @@ async function loadContacts() {
                     <td>${contact.properties.firstname || '-'}</td>
                     <td>${contact.properties.lastname || '-'}</td>
                     <td>${contact.properties.email || '-'}</td>
-                    <td>${contact.properties.jobtitle || '-'}</td>
                     <td>${contact.properties.company || '-'}</td>
                     <td>${renderThermostatDeals(thermostatDeals)}</td>
                     <td>${renderDeals(deals)}</td>
