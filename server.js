@@ -277,7 +277,7 @@ app.get('/api/deals', async (req, res) => {
 // POST endpoint - Create new deal and associate to contact
 app.post('/api/deals', async (req, res) => {
   try {
-    const { dealProperties, contactId } = req.body;
+    const { dealProperties, contactId, billingFrequency, lineItemPrice } = req.body;
     
     // Create the deal with association to contact
     const dealResponse = await axios.post(
@@ -299,6 +299,115 @@ app.post('/api/deals', async (req, res) => {
         }
       }
     );
+    
+    const dealId = dealResponse.data.id;
+    
+    // Create line item if billing frequency and price are provided
+    if (billingFrequency && lineItemPrice) {
+      try {
+        // Find or create the "Breezy Premium" product
+        let productId;
+        try {
+          console.log('Searching for Breezy Premium product...');
+          const productSearch = await axios.get(
+            `${HUBSPOT_API_BASE}/crm/v3/objects/products`,
+            {
+              headers: {
+                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+                'Content-Type': 'application/json'
+              },
+              params: {
+                limit: 1,
+                properties: 'name',
+                filterGroups: [{
+                  filters: [{
+                    propertyName: 'name',
+                    operator: 'EQ',
+                    value: 'Breezy Premium'
+                  }]
+                }]
+              }
+            }
+          );
+          
+          if (productSearch.data.results && productSearch.data.results.length > 0) {
+            productId = productSearch.data.results[0].id;
+            console.log(`Found existing product with ID: ${productId}`);
+          } else {
+            // Create the product if it doesn't exist
+            console.log('Product not found, creating new product...');
+            const productCreate = await axios.post(
+              `${HUBSPOT_API_BASE}/crm/v3/objects/products`,
+              {
+                properties: {
+                  name: 'Breezy Premium',
+                  price: lineItemPrice.toString()
+                }
+              },
+              {
+                headers: {
+                  'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            productId = productCreate.data.id;
+            console.log(`Created new product with ID: ${productId}`);
+          }
+        } catch (productError) {
+          console.error('Error finding/creating product:', productError.response?.data || productError.message);
+          // Continue without line item if product creation fails
+        }
+        
+        // Create the line item
+        if (productId) {
+          const price = parseFloat(lineItemPrice) || 0;
+          
+          const lineItemResponse = await axios.post(
+            `${HUBSPOT_API_BASE}/crm/v3/objects/line_items`,
+            {
+              properties: {
+                name: 'Breezy Premium',
+                price: price.toString(),
+                amount: price.toString(),
+                quantity: '1',
+                recurringbillingfrequency: billingFrequency, // monthly or annually
+                hs_product_id: productId
+              }
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          const lineItemId = lineItemResponse.data.id;
+          console.log('Line item created:', lineItemId);
+          
+          // Associate line item to deal
+          try {
+            await axios.put(
+              `${HUBSPOT_API_BASE}/crm/v3/objects/line_items/${lineItemId}/associations/deals/${dealId}/20`,
+              {},
+              {
+                headers: {
+                  'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            console.log('Line item successfully associated to deal');
+          } catch (assocError) {
+            console.error('Error associating line item to deal:', assocError.response?.data || assocError.message);
+          }
+        }
+      } catch (lineItemError) {
+        console.error('Error creating line item:', lineItemError.response?.data || lineItemError.message);
+        // Continue even if line item creation fails
+      }
+    }
     
     res.json(dealResponse.data);
   } catch (error) {

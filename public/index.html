@@ -77,14 +77,22 @@
                     <div class="form-group">
                         <label for="dealname">Trial Name *</label>
                         <input type="text" id="dealname" name="dealname" 
-                               placeholder="e.g., Breezy Premium - 30 Day Trial" required>
+                               value="Breezy Premium - 30 Day Trial" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="amount">Trial Value ($)</label>
+                        <label for="amount">Trial Value ($) *</label>
                         <input type="number" id="amount" name="amount" step="0.01" 
-                               placeholder="0.00">
-                        <small>Optional - Enter the value of the trial (typically $0 for free trials)</small>
+                               placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="billing-frequency">Billing Frequency *</label>
+                        <select id="billing-frequency" name="billingFrequency" required>
+                            <option value="">Select frequency...</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="annually">Annually</option>
+                        </select>
                     </div>
                     
                     <div class="form-group">

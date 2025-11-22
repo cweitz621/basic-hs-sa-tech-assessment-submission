@@ -9,13 +9,24 @@ function showMessage(containerId, message, type = 'error') {
     }, 5000);
 }
 
+// Store original button text for restoration
+const buttonTexts = {};
+
 function setLoading(elementId, isLoading) {
     const element = document.getElementById(elementId);
     if (isLoading) {
+        // Store original text if not already stored
+        if (!buttonTexts[elementId]) {
+            buttonTexts[elementId] = element.textContent;
+        }
         element.disabled = true;
         element.textContent = 'Loading...';
     } else {
         element.disabled = false;
+        // Restore original text
+        if (buttonTexts[elementId]) {
+            element.textContent = buttonTexts[elementId];
+        }
     }
 }
 
@@ -396,19 +407,23 @@ document.getElementById('deal-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const amountValue = document.getElementById('amount').value;
+    const billingFrequency = document.getElementById('billing-frequency').value;
+    
     const dealProperties = {
         dealname: document.getElementById('dealname').value,
         dealstage: document.getElementById('dealstage').value
     };
     
-    // Only include amount if provided
+    // Include amount (required field)
     if (amountValue && amountValue.trim() !== '') {
         dealProperties.amount = amountValue;
     }
     
     const formData = {
         dealProperties: dealProperties,
-        contactId: document.getElementById('contact-select').value
+        contactId: document.getElementById('contact-select').value,
+        billingFrequency: billingFrequency,
+        lineItemPrice: amountValue // Price for the line item
     };
     
     const submitBtn = document.getElementById('deal-submit-btn');
