@@ -243,8 +243,7 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 **What I Learned:**
 - Prompt engineering is crucial for getting structured, actionable responses from AI
 - AI models need clear instructions about output format (JSON structure)
-- Context matters - providing comprehensive customer data leads to better insights
-- AI can effectively bridge the gap between data analysis and actionable recommendations
+- Context matters: providing comprehensive information about the business and its goals and priorities leads to better outcomes
 - **AI for Documentation**: Using Gemini to generate Mermaid diagram code demonstrated how AI can accelerate documentation tasks, helping structure complex relationships and generate visual representations of system architecture
 
 ### How Did AI Help (or Not Help)?
