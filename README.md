@@ -97,7 +97,7 @@ You should see:
 - If preferred, you can create subscriptions directly via API calls from your application
 - This gives you more control but uses more API calls
 - You would need to add an endpoint to create subscription records using the HubSpot Custom Objects API
-- Example: `POST /crm/v3/objects/breezy_subscriptions` (using object ID `2-53381506`)
+- Example: `POST /crm/v3/objects/[object ID]` (using object ID `2-53381506`)
 
 **For this POC, we demonstrate Option A (workflows)** to show how you can reduce API call volume. In production, choose the approach that best fits your needs, rate limits, and control requirements.
 
