@@ -217,7 +217,7 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 ### Entity Relationship Diagram (ERD)
 
-![HubSpot Data Architecture ERD](assets/images/Basic_ERD_SA_Tech_Assessment.png)
+![HubSpot Data Architecture ERD](assets/images/V2_BASIC_Assessment_ERD.png)
 
 *This ERD was created using Google Gemini to generate Mermaid diagram code, which was then rendered into the visual diagram shown above. Gemini helped structure the relationships between HubSpot objects including Contacts and Deals. In this simplified architecture, deals represent both trials and subscriptions, with deal stages indicating subscription status (Converted (Active Subscription) = active subscription, Trial Ended = no subscription, Cancelled = cancelled subscription). A Company object is included in the ERD to support Breezy's potential future B2B distributor model, even though the current POC focuses on B2C operations.*
 
