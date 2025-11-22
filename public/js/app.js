@@ -285,7 +285,7 @@ async function loadContacts() {
                             <th>Email</th>
                             <th>Job Title</th>
                             <th>Company</th>
-                            <th>Trials</th>
+                            <th>Subscription</th>
                             <th>AI Customer Health</th>
                         </tr>
                     </thead>

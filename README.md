@@ -220,108 +220,100 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 ![HubSpot Data Architecture ERD](assets/images/Basic_ERD_SA_Tech_Assessment.png)
 
-*This ERD was created using Google Gemini to generate Mermaid diagram code, which was then rendered into the visual diagram shown above. Gemini helped structure the complex relationships between HubSpot objects including Contacts, Deals (Trials and Hardware Purchases), Line Items, Products, and the Breezy Subscriptions custom object.*
+*This ERD was created using Google Gemini to generate Mermaid diagram code, which was then rendered into the visual diagram shown above. Gemini helped structure the relationships between HubSpot objects including Contacts and Deals. In this simplified architecture, deals represent both trials and subscriptions, with deal stages indicating subscription status (Converted (Active Subscription) = active subscription, Trial Ended = no subscription, Cancelled = cancelled subscription).*
 
 ### Why This Architecture?
 
-This data model architecture provides several key benefits for Breezy's business needs:
+This simplified data model architecture provides several key benefits for Breezy's business needs:
 
-1. **Separation of Concerns**: 
-   - **Deals** represent sales opportunities and transactions (one-time purchases, trials)
-   - **Subscriptions** represent ongoing service relationships and recurring revenue
-   - This separation allows Breezy to track sales activities separately from subscription management, enabling accurate reporting on both sales performance and recurring revenue
+1. **Unified Deal-Based Model**: 
+   - **Deals represent both trials and subscriptions** - A single deal object tracks the entire trial-to-subscription lifecycle
+   - **Deal stages indicate subscription status**: "Converted (Active Subscription)" = active subscription, "Trial Ended" = trial ended without subscription, "Cancelled" = subscription was cancelled
+   - This unified approach simplifies data management and reduces complexity by using one object type instead of separate deals and subscription objects
 
-2. **Accurate Revenue Tracking**:
-   - Line items linked to deals provide detailed product-level revenue tracking
-   - Hardware purchases (thermostats) are tracked separately from subscription trials
-   - Enables proper revenue recognition: one-time hardware sales vs. recurring subscription revenue
+2. **Simplified Revenue Tracking**:
+   - Deal amount represents the trial/subscription value
+   - No line items required for trials - deals contain the amount directly
+   - Enables straightforward revenue tracking without complex line item associations
+   - When a deal is closed (Converted (Active Subscription) stage), it represents an active subscription with recurring revenue
 
 3. **Flexible Pipeline Management**:
-   - Separate pipelines for hardware purchases and trials allow different sales processes
-   - Hardware Pipeline can track fulfillment stages (Purchased, Shipped, Delivered)
-   - Trial Pipeline can track conversion stages (Active, Converted, Lost)
-   - Each pipeline can have its own stages and workflows optimized for that sales motion
+   - Breezy Premium Subscriptions pipeline tracks the complete customer journey
+   - Deal stages clearly indicate subscription status: Active, Converted (Active Subscription), Trial Ended, Cancelled
+   - Easy to identify churn risk: "Cancelled" stage = high risk, "Trial Ended" = medium risk, "Converted (Active Subscription)" = low risk
+   - Pipeline stages provide immediate visibility into customer health without additional queries
 
-4. **Scalable Product Management**:
-   - Products are centralized and reusable across multiple deals
-   - Line items reference products, enabling consistent pricing and product information
-   - Easy to add new products without modifying deal structures
+4. **Streamlined Data Model**:
+   - Uses only standard HubSpot objects (Contacts, Deals) - no custom objects required
+   - Reduces API calls and complexity by eliminating the need for subscription object lookups
+   - Deal stage is the single source of truth for subscription status
+   - Simpler to maintain and understand for Breezy's team
 
 5. **Complete Customer Journey Tracking**:
-   - Contacts can have multiple deals (hardware purchases and trials)
-   - Provides full visibility into customer lifecycle: purchase → trial → subscription
+   - Contacts can have one trial deal that tracks their entire subscription lifecycle
+   - Deal stages provide clear progression: Active → Converted (Active Subscription) (subscription active) or Trial Ended (no subscription)
+   - If subscription is cancelled, deal stage moves to "Cancelled" - providing full history
+   - Single deal per contact prevents duplicate trials and simplifies tracking
 
 6. **Reporting and Analytics**:
-   - Can analyze hardware sales separately from subscription conversions
-   - Track trial-to-subscription conversion rates
-   - Calculate MRR/ARR from subscription data
-   - Report on product-level performance through line items
+   - Can easily filter deals by stage to identify active subscriptions (Converted (Active Subscription)), churned customers (Cancelled), and unconverted trials (Trial Ended)
+   - Track conversion rates by comparing "Converted (Active Subscription)" deals to "Trial Ended" deals
+   - Calculate revenue from deal amounts for active subscriptions
+   - Simple queries: all deals in "Converted (Active Subscription)" stage = active subscriptions
 
 7. **HubSpot Best Practices**:
-   - Uses standard HubSpot objects (Contacts, Deals, Products, Line Items) for native reporting
-   - Custom object (Breezy Subscriptions) extends functionality without breaking HubSpot conventions
-   - Leverages HubSpot's built-in associations and relationship tracking
+   - Uses standard HubSpot objects (Contacts, Deals) for native reporting and workflows
+   - Leverages HubSpot's built-in deal stage functionality for subscription lifecycle management
+   - No custom objects required - works with any HubSpot plan
+   - Deal stages can trigger workflows (e.g., when deal moves to "Converted (Active Subscription)", send welcome email)
+   - Native HubSpot reporting tools work out-of-the-box with deal stages
 
 ### Deal Pipeline Architecture
 
-#### 1. Hardware Pipeline (ID: `829155852`)
-**Purpose**: Track hardware (thermostat) purchases
 
-**Stages:**
-- **Purchased** (ID: `1228120105`) - Customer has purchased thermostats
-- Additional stages can be added (e.g., "Shipped", "Delivered", "Returned")
-
-**Deal Properties:**
-- `dealname`: "Thermostat Purchase - [Customer Name]"
-- `amount`: Total purchase value (quantity × $299)
-- `pipeline`: `829155852`
-- `dealstage`: `1228120105` (Purchased)
-
-**Associated Line Items:**
-- Product: "Breezy Thermostat"
-- Price: $299.00 per unit
-- Quantity: Number of thermostats purchased
-- Amount: Total value
-
-#### 2. Trial Pipeline
-**Purpose**: Track trial signups and conversions
+#### Breezy Premium Subscriptions Pipeline
+**Purpose**: Track trial signups and subscription status
 
 **Stages:**
 - **Active** - Trial is currently active
-- **Converted** - Trial converted to paid subscription
-- **Ended** - Trial has ended
+- **Converted (Active Subscription)** - Trial converted to paid subscription (active subscription)
+- **Trial Ended** - Trial ended without converting to subscription
+- **Cancelled** - Subscription was cancelled (customer had subscription but cancelled it)
 
 **Deal Properties:**
 - `dealname`: "Breezy Premium - 30 Day Trial" (default)
-- `amount`: Trial value (optional)
-- `dealstage`: Selected from dynamic pipeline stages
-- `pipeline`: Default pipeline (not Hardware Pipeline)
+- `amount`: Trial/subscription value
+- `dealstage`: Selected from dynamic pipeline stages (determines subscription status)
+- `pipeline`: Breezy Premium Subscriptions pipeline
 
-**Associated Line Items:**
-- Product: "Breezy Premium"
-- Price: Trial value amount
-- Quantity: 1
-- `recurringbillingfrequency`: "monthly" or "annually"
-- Amount: Trial value
+**Subscription Status Determination:**
+- Deal stage = "Converted (Active Subscription)" → Customer has active subscription (low churn risk)
+- Deal stage = "Trial Ended" → Trial ended without subscription (medium churn risk - re-engagement opportunity)
+- Deal stage = "Cancelled" → Customer had subscription but cancelled (high churn risk - needs immediate attention)
+- Deal stage = "Active" → Trial in progress
+
+**Note**: No line items are created for trials. The deal amount and stage provide all necessary information for tracking subscription status.
 
 ### Data Flow
 
 1. **Contact Creation**:
-   - Contact created in HubSpot
-   - If thermostat quantity provided → Deal created in Hardware Pipeline
-   - Line items created and associated
+   - Contact created in HubSpot with basic information (name, email, job title, company)
+   - Contact is ready to be associated with trials
 
 2. **Trial Creation**:
-   - Deal created in default pipeline
-   - "Breezy Premium" product found/created
-   - Line item created with billing frequency
+   - Deal created in Breezy Premium Subscriptions pipeline
+   - Deal amount set to trial/subscription value
+   - Deal stage set by user (typically "Active" for new trials)
    - Deal associated with contact
+   - **No line items created** - deal amount and stage provide all necessary information
 
-3. **Subscription Tracking**:
-   - Custom object "Breezy Subscriptions" (ID: `2-53381506`)
-   - Linked to trials via `trial_id`
-   - Status tracked (Active/Cancelled)
-   - Dates tracked (active_date, cancellation_date)
+3. **Subscription Status Tracking**:
+   - Subscription status is determined by deal stage, not a separate object
+   - When trial converts to subscription: Deal stage moved to "Converted (Active Subscription)"
+   - When trial ends without conversion: Deal stage moved to "Trial Ended"
+   - When subscription is cancelled: Deal stage moved to "Cancelled"
+   - Deal stage is the single source of truth for subscription status
+   - AI insights use deal stages to determine churn risk and customer health
 
 ---
 
@@ -331,11 +323,12 @@ This data model architecture provides several key benefits for Breezy's business
 
 **AI Customer Health Insight** is a feature that analyzes customer data and generates actionable insights with specific recommendations for using HubSpot AI tools. When a user clicks "Get AI Insight" for a contact, the system:
 
-1. Aggregates customer data (hardware purchases, trials, subscriptions, dates)
-2. Sends a structured prompt to Google Gemini 2.0 Flash API
-3. Receives analysis including:
+1. Aggregates customer data (trials, deal stages indicating subscription status, dates)
+2. Analyzes deal stages to determine subscription health: "Converted (Active Subscription)" = active subscription (low churn risk), "Trial Ended" = no subscription (medium risk), "Cancelled" = cancelled subscription (high churn risk)
+3. Sends a structured prompt to Google Gemini 2.0 Flash API with deal stage information
+4. Receives analysis including:
    - **Likelihood to Upgrade**: Low/Medium/High with percentage
-   - **Risk of Churn**: Low/Medium/High with percentage
+   - **Risk of Churn**: Low/Medium/High with percentage (based on deal stages)
    - **Suggested Action**: Specific recommendation with HubSpot AI tool suggestions
    - **Justification**: 2-3 sentence explanation
 
@@ -396,20 +389,23 @@ AI provides: "High likelihood to upgrade (85%) - Customer purchased 2 thermostat
    - Customer purchases thermostats
    - Customer signs up for trial
 
-2. **Subscription Management**: Assumed Breezy wants to track subscription status and information in HubSpot separately from deals, which represent sales opportunities. The subscription custom object:
-   - Tracks the actual ongoing service relationship (separate from trial deals)
-   - Tracks subscription status (Active/Cancelled) and important dates (active_date, cancellation_date)
+2. **Subscription Management**: In this simplified architecture, subscriptions are represented as deals with deal stages indicating subscription status:
+   - Deal stage "Converted (Active Subscription)" = active subscription (successful trial conversion)
+   - Deal stage "Trial Ended" = trial ended without subscription
+   - Deal stage "Cancelled" = subscription was cancelled
+   - Deal stage "Active" = trial in progress
+   - This approach uses standard HubSpot objects (deals) rather than custom objects, simplifying the data model
 
 3. **Admin Panel Usage**: Assumed Breezy's team would use this admin panel for:
    - Manual data entry (for testing/demo purposes)
    - Viewing unified customer data
-   - Getting AI insights for decision-making
+   - Getting AI insights for decision-making based on deal stages
 
 4. **Business Logic**:
-   - Customers can purchase multiple thermostats
-   - Customers can have multiple trials
-   - Trials can convert to subscriptions
-   - Subscriptions can be active or cancelled
+   - Each contact can have only one trial deal (prevents duplicate trials)
+   - Deal stages track the complete subscription lifecycle: Active → Converted (Active Subscription) (subscription) or Trial Ended (no subscription)
+   - If a subscription is cancelled, the deal stage moves to "Cancelled"
+   - Deal stage is the single source of truth for subscription status
 
 ### What Would You Improve With More Time?
 
@@ -419,15 +415,13 @@ AI provides: "High likelihood to upgrade (85%) - Customer purchased 2 thermostat
    - Design subscription and revenue data models that support accurate MRR/ARR calculations and forecasting
    - Implement proper revenue recognition tracking aligned with their accounting needs
 
-2. **Native HubSpot Subscription Object**:
-   - Consider migrating from the custom "Breezy Subscriptions" object to HubSpot's native Subscription object
-   - Leverage Commerce Hub features for subscription management, including:
-     - Built-in subscription lifecycle management
-     - Automated billing and payment processing integrations
-     - Native subscription reporting and analytics
-     - Subscription renewal and cancellation workflows
-     - Integration with HubSpot Payments (if applicable)
-   - Evaluate trade-offs: native object provides more features but may require Commerce Hub subscription and have different data structure requirements
+2. **Enhanced Subscription Tracking** (if needed):
+   - Current architecture uses deal stages to represent subscriptions, which works well for proof-of-concept
+   - If more advanced subscription features are needed (recurring billing, payment processing, renewal automation), consider:
+     - HubSpot's native Subscription object (requires Commerce Hub)
+     - Integration with subscription billing platforms (Stripe, Recurly, etc.)
+     - Custom properties on deals to track subscription-specific data (renewal date, billing frequency, etc.)
+   - For most use cases, deal stages provide sufficient subscription status tracking
 
 3. **Error Handling**:
    - More granular error messages

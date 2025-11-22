@@ -623,7 +623,7 @@ Trial & Subscription Status (based on deal stages):
 - Latest trial date: ${latestTrialDate || 'No trials'}
 
 Subscription Health:
-${hasActiveSubscription ? '- ✅ HAS ACTIVE SUBSCRIPTION (deal stage: Converted)' : ''}
+${hasActiveSubscription ? '- ✅ HAS ACTIVE SUBSCRIPTION (deal stage: Converted (Active Subscription))' : ''}
 ${hasCancelledSubscription ? '- ❌ SUBSCRIPTION CANCELLED (deal stage: Cancelled)' : ''}
 ${hasUnconvertedTrial ? '- ⚠️ TRIAL ENDED WITHOUT SUBSCRIPTION (deal stage: Trial Ended)' : ''}
 ${!hasActiveSubscription && !hasCancelledSubscription && !hasUnconvertedTrial && trialDeals.length > 0 ? '- ⏳ Trial in progress' : ''}
@@ -653,14 +653,14 @@ Based on this customer data, provide a concise AI Customer Health Insight analys
 
 Focus on:
 - Their engagement level (hardware ownership, trial activity)
-- Deal stage analysis: Converted = active subscription (low churn risk), Trial Ended = no subscription (medium churn risk), Cancelled = cancelled subscription (high churn risk)
+- Deal stage analysis: Converted (Active Subscription) = active subscription (low churn risk), Trial Ended = no subscription (medium churn risk), Cancelled = cancelled subscription (high churn risk)
 - Conversion patterns (trial to subscription based on deal stages)
 - Time-based signals (recent activity vs. inactivity)
-- Risk factors based on deal stages (cancelled deals = high risk, trial ended = medium risk, converted = low risk)
+- Risk factors based on deal stages (cancelled deals = high risk, trial ended = medium risk, converted (active subscription) = low risk)
 - Opportunities (upsell potential, re-engagement needs)
 
 IMPORTANT: Use the deal stage information to determine churn risk:
-- "Converted" stage = customer has active subscription, successful trial conversion (LOW churn risk)
+- "Converted (Active Subscription)" stage = customer has active subscription, successful trial conversion (LOW churn risk)
 - "Trial Ended" stage = trial ended without converting to subscription (MEDIUM churn risk - opportunity to re-engage)
 - "Cancelled" stage = customer had subscription but cancelled it (HIGH churn risk - needs immediate attention)
 
