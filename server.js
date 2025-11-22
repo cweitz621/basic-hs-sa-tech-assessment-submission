@@ -18,6 +18,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 const HUBSPOT_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
 
+// Gemini API configuration
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+
 // Validate token on startup
 if (!HUBSPOT_TOKEN) {
   console.error('❌ ERROR: HUBSPOT_ACCESS_TOKEN not found in .env file');
@@ -645,6 +649,286 @@ app.get('/api/contacts/:contactId/subscriptions', async (req, res) => {
     console.error('Error fetching subscriptions for contact:', error.response?.data || error.message);
     res.status(error.response?.status || 500).json({
       error: 'Failed to fetch subscriptions for contact',
+      details: error.response?.data || error.message
+    });
+  }
+});
+
+// POST endpoint - Get AI Customer Health Insight for a contact
+app.post('/api/contacts/:contactId/ai-insight', async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: 'Gemini API key not configured',
+        details: 'Please set GEMINI_API_KEY in your .env file'
+      });
+    }
+    
+    // Get contact details
+    let contactData = null;
+    try {
+      const contactRes = await axios.get(
+        `${HUBSPOT_API_BASE}/crm/v3/objects/contacts/${contactId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          params: {
+            properties: 'firstname,lastname,email,createdate'
+          }
+        }
+      );
+      contactData = contactRes.data;
+    } catch (error) {
+      console.error('Error fetching contact:', error);
+    }
+    
+    // Get all deals for the contact
+    let allDeals = [];
+    try {
+      const assocRes = await axios.get(
+        `${HUBSPOT_API_BASE}/crm/v3/objects/contacts/${contactId}/associations/deals`,
+        {
+          headers: {
+            'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (assocRes.data.results && assocRes.data.results.length > 0) {
+        const dealIds = assocRes.data.results.map(r => r.id);
+        const dealsRes = await axios.post(
+          `${HUBSPOT_API_BASE}/crm/v3/objects/deals/batch/read`,
+          {
+            inputs: dealIds.map(id => ({ id })),
+            properties: ['dealname', 'amount', 'dealstage', 'closedate', 'pipeline', 'createdate', 'converted_subscription_id']
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        allDeals = dealsRes.data.results || [];
+      }
+    } catch (error) {
+      console.error('Error fetching deals:', error);
+    }
+    
+    // Separate thermostat and trial deals
+    const thermostatDeals = allDeals.filter(d => d.properties.pipeline === '829155852');
+    const trialDeals = allDeals.filter(d => d.properties.pipeline !== '829155852');
+    
+    // Get subscriptions
+    let subscriptions = [];
+    try {
+      const objectType = '2-53381506';
+      const associationsResponse = await axios.get(
+        `${HUBSPOT_API_BASE}/crm/v3/objects/contacts/${contactId}/associations/${objectType}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (associationsResponse.data.results && associationsResponse.data.results.length > 0) {
+        const subscriptionIds = associationsResponse.data.results.map(r => r.id);
+        const subscriptionsResponse = await axios.post(
+          `${HUBSPOT_API_BASE}/crm/v3/objects/${objectType}/batch/read`,
+          {
+            inputs: subscriptionIds.map(id => ({ id })),
+            properties: ['hs_object_id', 'status', 'subscription_id', 'active_date', 'cancellation_date', 'trial_id']
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        subscriptions = subscriptionsResponse.data.results || [];
+      }
+    } catch (error) {
+      console.error('Error fetching subscriptions:', error);
+    }
+    
+    // Calculate metrics - get actual quantities from line items
+    let hardwareCount = 0;
+    for (const deal of thermostatDeals) {
+      try {
+        const lineItemsRes = await axios.get(
+          `${HUBSPOT_API_BASE}/crm/v3/objects/deals/${deal.id}/associations/line_items`,
+          {
+            headers: {
+              'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (lineItemsRes.data.results && lineItemsRes.data.results.length > 0) {
+          const lineItemIds = lineItemsRes.data.results.map(r => r.id);
+          const lineItemsDetails = await axios.post(
+            `${HUBSPOT_API_BASE}/crm/v3/objects/line_items/batch/read`,
+            {
+              inputs: lineItemIds.map(id => ({ id })),
+              properties: ['quantity']
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          hardwareCount += (lineItemsDetails.data.results || []).reduce((sum, item) => {
+            return sum + parseInt(item.properties.quantity || '0');
+          }, 0);
+        } else {
+          hardwareCount += 1; // Fallback to 1 if no line items
+        }
+      } catch (error) {
+        hardwareCount += 1; // Fallback to 1 if error
+      }
+    }
+    
+    const totalHardwareValue = thermostatDeals.reduce((sum, deal) => {
+      return sum + (parseFloat(deal.properties.amount || 0));
+    }, 0);
+    
+    const activeSubscriptions = subscriptions.filter(s => s.properties?.status?.toLowerCase() === 'active');
+    const cancelledSubscriptions = subscriptions.filter(s => s.properties?.status?.toLowerCase() === 'cancelled');
+    
+    const convertedTrials = trialDeals.filter(d => d.properties.converted_subscription_id);
+    const unconvertedTrials = trialDeals.filter(d => !d.properties.converted_subscription_id);
+    
+    const totalTrialValue = trialDeals.reduce((sum, deal) => {
+      return sum + (parseFloat(deal.properties.amount || 0));
+    }, 0);
+    
+    // Get dates
+    const contactCreatedDate = contactData?.properties?.createdate || 'Unknown';
+    const latestHardwarePurchase = thermostatDeals.length > 0 
+      ? thermostatDeals.sort((a, b) => new Date(b.properties.createdate || 0) - new Date(a.properties.createdate || 0))[0].properties.createdate
+      : null;
+    const latestTrialDate = trialDeals.length > 0
+      ? trialDeals.sort((a, b) => new Date(b.properties.createdate || 0) - new Date(a.properties.createdate || 0))[0].properties.createdate
+      : null;
+    
+    // Build prompt for Gemini
+    const customerSummary = `
+Customer Profile for ${contactData?.properties?.firstname || ''} ${contactData?.properties?.lastname || ''} (${contactData?.properties?.email || 'N/A'}):
+
+Hardware Purchases:
+- Total thermostats purchased: ${hardwareCount}
+- Total hardware value: $${totalHardwareValue.toFixed(2)}
+- Latest purchase date: ${latestHardwarePurchase || 'No purchases'}
+
+Subscription Status:
+- Active subscriptions: ${activeSubscriptions.length}
+- Cancelled subscriptions: ${cancelledSubscriptions.length}
+- Total subscriptions: ${subscriptions.length}
+
+Trial Activity:
+- Total trials: ${trialDeals.length}
+- Converted trials: ${convertedTrials.length}
+- Unconverted trials: ${unconvertedTrials.length}
+- Total trial value: $${totalTrialValue.toFixed(2)}
+- Latest trial date: ${latestTrialDate || 'No trials'}
+
+Key Dates:
+- Customer since: ${contactCreatedDate}
+- Days since last hardware purchase: ${latestHardwarePurchase ? Math.floor((new Date() - new Date(latestHardwarePurchase)) / (1000 * 60 * 60 * 24)) : 'N/A'}
+- Days since last trial: ${latestTrialDate ? Math.floor((new Date() - new Date(latestTrialDate)) / (1000 * 60 * 60 * 24)) : 'N/A'}
+
+Conversion Pattern:
+${convertedTrials.length > 0 ? `- Has converted ${convertedTrials.length} trial(s) to paid subscription` : '- No trial conversions yet'}
+${unconvertedTrials.length > 0 ? `- Has ${unconvertedTrials.length} unconverted trial(s)` : ''}
+${latestHardwarePurchase && !latestTrialDate ? '- Purchased hardware but has not started a trial' : ''}
+${latestTrialDate && unconvertedTrials.length > 0 ? '- Started trial but has not converted to paid subscription' : ''}
+`;
+
+    const prompt = `${customerSummary}
+
+Based on this customer data, provide a concise AI Customer Health Insight analysis. Return your response as a JSON object with the following structure:
+{
+  "likelihoodToUpgrade": "Low/Medium/High with percentage (e.g., 'High (85%)')",
+  "riskOfChurn": "Low/Medium/High with percentage (e.g., 'Medium (45%)')",
+  "suggestedAction": "A specific, actionable marketing or sales recommendation",
+  "justification": "A brief 2-3 sentence explanation of the insights"
+}
+
+Focus on:
+- Their engagement level (hardware ownership, trial activity)
+- Conversion patterns (trial to subscription)
+- Time-based signals (recent activity vs. inactivity)
+- Risk factors (unconverted trials, no recent activity)
+- Opportunities (upsell potential, re-engagement needs)
+
+Be specific and actionable in your recommendations.`;
+
+    // Call Gemini 2.0 Flash API (experimental)
+    const geminiResponse = await axios.post(
+      `${GEMINI_API_BASE}/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        }
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    // Extract the response text
+    const responseText = geminiResponse.data.candidates[0].content.parts[0].text;
+    
+    // Try to parse JSON from the response (it might be wrapped in markdown code blocks)
+    let insightData;
+    try {
+      // Remove markdown code blocks if present
+      const jsonMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      const jsonText = jsonMatch ? jsonMatch[1] : responseText;
+      insightData = JSON.parse(jsonText);
+    } catch (parseError) {
+      // If parsing fails, create a structured response from the text
+      console.error('Error parsing Gemini response:', parseError);
+      insightData = {
+        likelihoodToUpgrade: "Analysis unavailable",
+        riskOfChurn: "Analysis unavailable",
+        suggestedAction: "Review customer data manually",
+        justification: responseText.substring(0, 200) + "..."
+      };
+    }
+    
+    res.json({
+      success: true,
+      insight: insightData,
+      rawResponse: responseText
+    });
+    
+  } catch (error) {
+    console.error('Error generating AI insight:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to generate AI insight',
       details: error.response?.data || error.message
     });
   }

@@ -156,6 +156,7 @@ async function loadContacts() {
                             <th>Thermostat Purchase</th>
                             <th>Trial</th>
                             <th>Breezy Subscriptions</th>
+                            <th>AI Customer Health</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -177,6 +178,7 @@ async function loadContacts() {
                     <td>${renderThermostatDeals(thermostatDeals)}</td>
                     <td>${renderDeals(deals)}</td>
                     <td>${renderSubscriptions(subscriptions)}</td>
+                    <td>${renderAIInsightButton(contact.id)}</td>
                 </tr>
             `;
         }
@@ -333,6 +335,113 @@ function renderSubscriptions(subscriptions) {
         `;
     }).join('');
 }
+
+// Render AI Insight button for a contact
+function renderAIInsightButton(contactId) {
+    return `
+        <div class="ai-insight-container">
+            <button class="btn ai-insight-btn" onclick="generateAIInsight('${contactId}')" id="ai-btn-${contactId}">
+                🤖 Get AI Insight
+            </button>
+        </div>
+    `;
+}
+
+// Generate AI insight for a contact (make it globally accessible)
+window.generateAIInsight = async function(contactId) {
+    const button = document.getElementById(`ai-btn-${contactId}`);
+    const modal = document.getElementById('ai-insight-modal');
+    const modalBody = document.getElementById('ai-insight-modal-body');
+    
+    // Show modal and disable button
+    modal.style.display = 'block';
+    button.disabled = true;
+    button.textContent = 'Analyzing...';
+    modalBody.innerHTML = '<div class="loading">Generating AI insights...</div>';
+    
+    try {
+        const response = await fetch(`${API_BASE}/contacts/${contactId}/ai-insight`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to generate AI insight');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.insight) {
+            const insight = data.insight;
+            
+            // Determine risk color
+            const riskColor = insight.riskOfChurn?.toLowerCase().includes('high') ? '#dc3545' :
+                            insight.riskOfChurn?.toLowerCase().includes('medium') ? '#ffc107' : '#28a745';
+            
+            // Determine upgrade color
+            const upgradeColor = insight.likelihoodToUpgrade?.toLowerCase().includes('high') ? '#28a745' :
+                                insight.likelihoodToUpgrade?.toLowerCase().includes('medium') ? '#ffc107' : '#6c757d';
+            
+            modalBody.innerHTML = `
+                <div class="ai-insight-card">
+                    <div class="ai-insight-metrics">
+                        <div class="ai-metric">
+                            <label>Likelihood to Upgrade:</label>
+                            <span style="color: ${upgradeColor}; font-weight: 600; font-size: 1.1em;">${insight.likelihoodToUpgrade || 'N/A'}</span>
+                        </div>
+                        <div class="ai-metric">
+                            <label>Risk of Churn:</label>
+                            <span style="color: ${riskColor}; font-weight: 600; font-size: 1.1em;">${insight.riskOfChurn || 'N/A'}</span>
+                        </div>
+                    </div>
+                    <div class="ai-insight-action">
+                        <strong>💡 Suggested Action:</strong>
+                        <p>${insight.suggestedAction || 'No recommendation available'}</p>
+                    </div>
+                    <div class="ai-insight-justification">
+                        <strong>📊 Justification:</strong>
+                        <p>${insight.justification || 'No justification provided'}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            throw new Error('Invalid response from AI service');
+        }
+    } catch (error) {
+        console.error('Error generating AI insight:', error);
+        modalBody.innerHTML = `
+            <div class="error">
+                <strong>Error generating insight:</strong>
+                <p>${error.message}</p>
+            </div>
+        `;
+    } finally {
+        // Re-enable button
+        button.disabled = false;
+        button.textContent = '🤖 Get AI Insight';
+    }
+}
+
+// Close AI modal (make it globally accessible)
+window.closeAIModal = function() {
+    const modal = document.getElementById('ai-insight-modal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside of it
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('ai-insight-modal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeAIModal();
+            }
+        });
+    }
+});
 
 // Handle contact form submission
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
