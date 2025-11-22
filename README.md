@@ -129,7 +129,6 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 ### Key Features
 
 - **Contact Management**: Create and view contacts
-- **Line Item Integration**: Automatic creation of line items for thermostats and premium subscriptions
 - **AI Customer Health**: Generate insights with specific HubSpot AI tool recommendations
 - **Error Handling**: User-friendly error messages for common issues (e.g., duplicate emails, multiple trials)
 
@@ -220,7 +219,7 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 ![HubSpot Data Architecture ERD](assets/images/Basic_ERD_SA_Tech_Assessment.png)
 
-*This ERD was created using Google Gemini to generate Mermaid diagram code, which was then rendered into the visual diagram shown above. Gemini helped structure the relationships between HubSpot objects including Contacts and Deals. In this simplified architecture, deals represent both trials and subscriptions, with deal stages indicating subscription status (Converted (Active Subscription) = active subscription, Trial Ended = no subscription, Cancelled = cancelled subscription).*
+*This ERD was created using Google Gemini to generate Mermaid diagram code, which was then rendered into the visual diagram shown above. Gemini helped structure the relationships between HubSpot objects including Contacts and Deals. In this simplified architecture, deals represent both trials and subscriptions, with deal stages indicating subscription status (Converted (Active Subscription) = active subscription, Trial Ended = no subscription, Cancelled = cancelled subscription). A Company object is included in the ERD to support Breezy's potential future B2B distributor model, even though the current POC focuses on B2C operations.*
 
 ### Why This Architecture?
 
@@ -275,14 +274,14 @@ This simplified data model architecture provides several key benefits for Breezy
 **Purpose**: Track trial signups and subscription status
 
 **Stages:**
-- **Active** - Trial is currently active
+- **Active Trial** - Trial is currently active
 - **Converted (Active Subscription)** - Trial converted to paid subscription (active subscription)
 - **Trial Ended** - Trial ended without converting to subscription
 - **Cancelled** - Subscription was cancelled (customer had subscription but cancelled it)
 
 **Deal Properties:**
-- `dealname`: "Breezy Premium - 30 Day Trial" (default)
-- `amount`: Trial/subscription value
+- `dealname`: "Breezy Premium" (default)
+- `amount`: Subscription value
 - `dealstage`: Selected from dynamic pipeline stages (determines subscription status)
 - `pipeline`: Breezy Premium Subscriptions pipeline
 
@@ -292,7 +291,6 @@ This simplified data model architecture provides several key benefits for Breezy
 - Deal stage = "Cancelled" → Customer had subscription but cancelled (high churn risk - needs immediate attention)
 - Deal stage = "Active" → Trial in progress
 
-**Note**: No line items are created for trials. The deal amount and stage provide all necessary information for tracking subscription status.
 
 ### Data Flow
 
@@ -305,7 +303,6 @@ This simplified data model architecture provides several key benefits for Breezy
    - Deal amount set to trial/subscription value
    - Deal stage set by user (typically "Active" for new trials)
    - Deal associated with contact
-   - **No line items created** - deal amount and stage provide all necessary information
 
 3. **Subscription Status Tracking**:
    - Subscription status is determined by deal stage, not a separate object
@@ -357,6 +354,21 @@ This simplified data model architecture provides several key benefits for Breezy
 Instead of: "Customer has active trial"
 AI provides: "High likelihood to upgrade (85%) - Customer purchased 2 thermostats and has active trial. Use HubSpot AI Email Assistant to draft personalized upgrade email highlighting multi-device benefits."
 
+**Note on Proof of Concept:**
+This AI feature is implemented as a proof of concept with limited data points (deal stages, trial dates, basic contact information). In a production application, the AI platform would have access to significantly more data and information that could enhance insights, including:
+- Email engagement metrics (open rates, click-through rates, response rates)
+- Website activity and behavior tracking
+- Support ticket history and resolution times
+- Product usage analytics and feature adoption
+- Social media interactions and sentiment
+- Marketing campaign engagement history
+- Payment history and billing interactions
+- Customer feedback and survey responses
+- Integration usage data (e.g., smart home device connections)
+- Historical communication logs and meeting notes
+
+With this richer dataset, the AI could provide even more nuanced insights, identify subtle patterns, and generate highly personalized recommendations that account for the full customer journey and engagement history.
+
 
 ---
 
@@ -365,7 +377,7 @@ AI provides: "High likelihood to upgrade (85%) - Customer purchased 2 thermostat
 ### Technical Choices and Why
 
 1. **Express.js Backend**
-   - **Why**: Simple, well-documented, easy to extend. Also was the provided boilerplate for this Assessment
+   - **Why**: Simple, well-documented, easy to extend. Already am experienced in Express and was the provided server starting point.
 
 2. **Vanilla JavaScript Frontend**
    - **Why**: No build step required, fast iteration, demonstrates core skills
@@ -379,9 +391,6 @@ AI provides: "High likelihood to upgrade (85%) - Customer purchased 2 thermostat
    - **Why**: Adapts to HubSpot configuration changes without code updates
    - **Alternative Considered**: Hardcoded stages (less flexible)
 
-5. **Line Items for Both Purchases and Trials**
-   - **Why**: Proper revenue tracking, supports reporting, follows HubSpot best practices
-   - **Alternative Considered**: Deals only (less accurate for accounting)
 
 ### Assumptions About Breezy's Platform
 
@@ -453,6 +462,8 @@ AI provides: "High likelihood to upgrade (85%) - Customer purchased 2 thermostat
    - What reporting/analytics are needed?
    - Do we need to track recurring revenue in HubSpot?
    - How long should historical data be retained?
+   - Are there more details about the Subscription itself you need to store in HubSpot?
+   - Do wish to track plan changes?
 
 3. **Business Rules**:
    - When should deals be automatically updated?

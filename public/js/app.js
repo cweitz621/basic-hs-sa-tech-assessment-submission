@@ -590,8 +590,8 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
             firstname: document.getElementById('firstname').value,
             lastname: document.getElementById('lastname').value,
             email: document.getElementById('email').value,
-            phone: document.getElementById('phone').value || undefined,
-            address: document.getElementById('address').value || undefined
+            jobtitle: document.getElementById('jobtitle').value || undefined,
+            company: document.getElementById('company').value || undefined
         }
     };
     
