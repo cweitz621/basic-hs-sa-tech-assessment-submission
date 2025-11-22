@@ -283,31 +283,27 @@ async function loadContacts() {
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Email</th>
-                            <th>Phone</th>
-                            <th>Thermostat Purchases</th>
+                            <th>Job Title</th>
+                            <th>Company</th>
                             <th>Trials</th>
-                            <th>Breezy Subscriptions</th>
                             <th>AI Customer Health</th>
                         </tr>
                     </thead>
                     <tbody>
         `;
         
-        // Load deals, thermostat deals, and subscriptions for each contact
+        // Load deals for each contact
         for (const contact of data.results) {
             const deals = await loadDealsForContact(contact.id);
-            const thermostatDeals = await loadThermostatDealsForContact(contact.id);
-            const subscriptions = await loadSubscriptionsForContact(contact.id);
             
             tableHTML += `
                 <tr>
                     <td>${contact.properties.firstname || '-'}</td>
                     <td>${contact.properties.lastname || '-'}</td>
                     <td>${contact.properties.email || '-'}</td>
-                    <td>${contact.properties.phone || '-'}</td>
-                    <td>${renderThermostatDeals(thermostatDeals)}</td>
+                    <td>${contact.properties.jobtitle || '-'}</td>
+                    <td>${contact.properties.company || '-'}</td>
                     <td>${renderDeals(deals)}</td>
-                    <td>${renderSubscriptions(subscriptions)}</td>
                     <td>${renderAIInsightButton(contact.id)}</td>
                 </tr>
             `;
@@ -589,8 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const thermostatQuantity = document.getElementById('thermostat-quantity').value;
-    
     const formData = {
         properties: {
             firstname: document.getElementById('firstname').value,
@@ -600,11 +594,6 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
             address: document.getElementById('address').value || undefined
         }
     };
-    
-    // Include thermostat quantity if provided
-    if (thermostatQuantity && parseInt(thermostatQuantity) > 0) {
-        formData.thermostatQuantity = parseInt(thermostatQuantity);
-    }
     
     // Remove undefined properties
     Object.keys(formData.properties).forEach(key => {
@@ -633,12 +622,7 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
         }
         
         const data = await response.json();
-        let successMessage = `✅ Success! Contact "${data.properties.firstname} ${data.properties.lastname}" has been synced to HubSpot.`;
-        
-        // If a thermostat deal was created, mention it
-        if (data.thermostatDeal) {
-            successMessage += ` Thermostat purchase deal created (${data.thermostatDeal.quantity} thermostat${data.thermostatDeal.quantity > 1 ? 's' : ''} - $${data.thermostatDeal.amount.toFixed(2)}).`;
-        }
+        const successMessage = `✅ Success! Contact "${data.properties.firstname} ${data.properties.lastname}" has been synced to HubSpot.`;
         
         showMessage('contact-form-message', successMessage, 'success');
         
@@ -659,8 +643,38 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
 document.getElementById('deal-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    const contactId = document.getElementById('contact-select').value;
+    
+    // Validate that contact is selected
+    if (!contactId) {
+        showMessage('deal-form-message', 'Error: Please select a contact first.', 'error');
+        return;
+    }
+    
+    // Check if contact already has a trial (deal)
+    setLoading('deal-submit-btn', true);
+    try {
+        const existingDeals = await loadDealsForContact(contactId);
+        
+        if (existingDeals && existingDeals.length > 0) {
+            // Get contact name for better error message
+            const selectedContact = allContacts.find(c => c.id === contactId);
+            const contactName = selectedContact 
+                ? `${selectedContact.properties.firstname || ''} ${selectedContact.properties.lastname || ''}`.trim() || selectedContact.properties.email
+                : 'This contact';
+            
+            setLoading('deal-submit-btn', false);
+            showMessage('deal-form-message', 
+                `Error: ${contactName} already has a trial. Each contact can only have one trial.`, 
+                'error');
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking for existing deals:', error);
+        // Continue with creation if check fails (don't block on validation error)
+    }
+    
     const amountValue = document.getElementById('amount').value;
-    const billingFrequency = document.getElementById('billing-frequency').value;
     
     const dealProperties = {
         dealname: document.getElementById('dealname').value,
@@ -674,13 +688,8 @@ document.getElementById('deal-form').addEventListener('submit', async (e) => {
     
     const formData = {
         dealProperties: dealProperties,
-        contactId: document.getElementById('contact-select').value,
-        billingFrequency: billingFrequency,
-        lineItemPrice: amountValue // Price for the line item
+        contactId: contactId
     };
-    
-    const submitBtn = document.getElementById('deal-submit-btn');
-    setLoading('deal-submit-btn', true);
     
     try {
         const response = await fetch(`${API_BASE}/deals`, {

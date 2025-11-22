@@ -49,7 +49,7 @@ app.get('/api/contacts', async (req, res) => {
         },
         params: {
           limit: 50,
-          properties: 'firstname,lastname,email,phone,address'
+          properties: 'firstname,lastname,email,phone,address,jobtitle,company'
         }
       }
     );
@@ -66,7 +66,7 @@ app.get('/api/contacts', async (req, res) => {
 // POST endpoint - Create new contact in HubSpot
 app.post('/api/contacts', async (req, res) => {
   try {
-    const { properties, thermostatQuantity } = req.body;
+    const { properties } = req.body;
     
     // Create the contact
     const contactResponse = await axios.post(
@@ -82,167 +82,7 @@ app.post('/api/contacts', async (req, res) => {
       }
     );
     
-    const contactId = contactResponse.data.id;
-    const contactData = contactResponse.data;
-    
-    // If thermostat quantity is provided, create a purchase deal with line items
-    if (thermostatQuantity && parseInt(thermostatQuantity) > 0) {
-      const quantity = parseInt(thermostatQuantity);
-      const unitPrice = 299;
-      const totalAmount = quantity * unitPrice;
-      const contactName = `${properties.firstname || ''} ${properties.lastname || ''}`.trim() || properties.email || 'Customer';
-      
-      // Create the deal in the order pipeline
-      const dealResponse = await axios.post(
-        `${HUBSPOT_API_BASE}/crm/v3/objects/deals`,
-        {
-          properties: {
-            dealname: `Thermostat Purchase - ${contactName}`,
-            amount: totalAmount.toString(),
-            dealstage: '1228120105', // "Purchased" stage ID
-            pipeline: '829155852' // Order pipeline ID
-          },
-          associations: [{
-            to: { id: contactId },
-            types: [{
-              associationCategory: "HUBSPOT_DEFINED",
-              associationTypeId: 3 // Deal to Contact association
-            }]
-          }]
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      const dealId = dealResponse.data.id;
-      
-      // Find or create the "Breezy Thermostat" product
-      let productId;
-      try {
-        console.log('Searching for Breezy Thermostat product...');
-        // Try to find existing product
-        const productSearch = await axios.get(
-          `${HUBSPOT_API_BASE}/crm/v3/objects/products`,
-          {
-            headers: {
-              'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-              'Content-Type': 'application/json'
-            },
-            params: {
-              limit: 1,
-              properties: 'name',
-              filterGroups: [{
-                filters: [{
-                  propertyName: 'name',
-                  operator: 'EQ',
-                  value: 'Breezy Thermostat'
-                }]
-              }]
-            }
-          }
-        );
-        
-        console.log('Product search results:', productSearch.data);
-        
-        if (productSearch.data.results && productSearch.data.results.length > 0) {
-          productId = productSearch.data.results[0].id;
-          console.log(`Found existing product with ID: ${productId}`);
-        } else {
-          // Create the product if it doesn't exist
-          console.log('Product not found, creating new product...');
-          const productCreate = await axios.post(
-            `${HUBSPOT_API_BASE}/crm/v3/objects/products`,
-            {
-              properties: {
-                name: 'Breezy Thermostat',
-                price: unitPrice.toString()
-              }
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          productId = productCreate.data.id;
-          console.log(`Created new product with ID: ${productId}`);
-        }
-      } catch (productError) {
-        console.error('Error finding/creating product:', productError.response?.data || productError.message);
-        console.error('Full product error:', productError);
-        // Continue without line items if product creation fails
-      }
-      
-      // Create line items if product was found/created
-      if (productId) {
-        try {
-          console.log(`Creating line item for deal ${dealId}, product ${productId}, quantity ${quantity}`);
-          
-          // Create the line item first
-          const lineItemResponse = await axios.post(
-            `${HUBSPOT_API_BASE}/crm/v3/objects/line_items`,
-            {
-              properties: {
-                name: 'Breezy Thermostat',
-                quantity: quantity.toString(),
-                price: unitPrice.toString(),
-                amount: totalAmount.toString(),
-                hs_product_id: productId // Associate product via property
-              }
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          
-          console.log('Line item created:', lineItemResponse.data);
-          const lineItemId = lineItemResponse.data.id;
-          
-          // Associate line item to deal using v3 PUT endpoint
-          try {
-            await axios.put(
-              `${HUBSPOT_API_BASE}/crm/v3/objects/line_items/${lineItemId}/associations/deals/${dealId}/20`,
-              {},
-              {
-                headers: {
-                  'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                  'Content-Type': 'application/json'
-                }
-              }
-            );
-            console.log('Line item successfully associated to deal');
-          } catch (assocError) {
-            console.error('Error associating line item to deal:', assocError.response?.data || assocError.message);
-          }
-        } catch (lineItemError) {
-          console.error('Error creating line item:', lineItemError.response?.data || lineItemError.message);
-          console.error('Full error:', lineItemError);
-          // Continue even if line item creation fails
-        }
-      } else {
-        console.log('No productId available, skipping line item creation');
-      }
-      
-      // Return contact data with deal info
-      return res.json({
-        ...contactData,
-        thermostatDeal: {
-          id: dealId,
-          amount: totalAmount,
-          quantity: quantity
-        }
-      });
-    }
-    
-    res.json(contactData);
+    res.json(contactResponse.data);
   } catch (error) {
     console.error('Error creating contact:', error.response?.data || error.message);
     
@@ -309,7 +149,7 @@ app.get('/api/deals', async (req, res) => {
 // POST endpoint - Create new deal and associate to contact
 app.post('/api/deals', async (req, res) => {
   try {
-    const { dealProperties, contactId, billingFrequency, lineItemPrice } = req.body;
+    const { dealProperties, contactId } = req.body;
     
     // Create the deal with association to contact
     const dealResponse = await axios.post(
@@ -331,115 +171,6 @@ app.post('/api/deals', async (req, res) => {
         }
       }
     );
-    
-    const dealId = dealResponse.data.id;
-    
-    // Create line item if billing frequency and price are provided
-    if (billingFrequency && lineItemPrice) {
-      try {
-        // Find or create the "Breezy Premium" product
-        let productId;
-        try {
-          console.log('Searching for Breezy Premium product...');
-          const productSearch = await axios.get(
-            `${HUBSPOT_API_BASE}/crm/v3/objects/products`,
-            {
-              headers: {
-                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                'Content-Type': 'application/json'
-              },
-              params: {
-                limit: 1,
-                properties: 'name',
-                filterGroups: [{
-                  filters: [{
-                    propertyName: 'name',
-                    operator: 'EQ',
-                    value: 'Breezy Premium'
-                  }]
-                }]
-              }
-            }
-          );
-          
-          if (productSearch.data.results && productSearch.data.results.length > 0) {
-            productId = productSearch.data.results[0].id;
-            console.log(`Found existing product with ID: ${productId}`);
-          } else {
-            // Create the product if it doesn't exist
-            console.log('Product not found, creating new product...');
-            const productCreate = await axios.post(
-              `${HUBSPOT_API_BASE}/crm/v3/objects/products`,
-              {
-                properties: {
-                  name: 'Breezy Premium',
-                  price: lineItemPrice.toString()
-                }
-              },
-              {
-                headers: {
-                  'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                  'Content-Type': 'application/json'
-                }
-              }
-            );
-            productId = productCreate.data.id;
-            console.log(`Created new product with ID: ${productId}`);
-          }
-        } catch (productError) {
-          console.error('Error finding/creating product:', productError.response?.data || productError.message);
-          // Continue without line item if product creation fails
-        }
-        
-        // Create the line item
-        if (productId) {
-          const price = parseFloat(lineItemPrice) || 0;
-          
-          const lineItemResponse = await axios.post(
-            `${HUBSPOT_API_BASE}/crm/v3/objects/line_items`,
-            {
-              properties: {
-                name: 'Breezy Premium',
-                price: price.toString(),
-                amount: price.toString(),
-                quantity: '1',
-                recurringbillingfrequency: billingFrequency, // monthly or annually
-                hs_product_id: productId
-              }
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          
-          const lineItemId = lineItemResponse.data.id;
-          console.log('Line item created:', lineItemId);
-          
-          // Associate line item to deal
-          try {
-            await axios.put(
-              `${HUBSPOT_API_BASE}/crm/v3/objects/line_items/${lineItemId}/associations/deals/${dealId}/20`,
-              {},
-              {
-                headers: {
-                  'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-                  'Content-Type': 'application/json'
-                }
-              }
-            );
-            console.log('Line item successfully associated to deal');
-          } catch (assocError) {
-            console.error('Error associating line item to deal:', assocError.response?.data || assocError.message);
-          }
-        }
-      } catch (lineItemError) {
-        console.error('Error creating line item:', lineItemError.response?.data || lineItemError.message);
-        // Continue even if line item creation fails
-      }
-    }
     
     res.json(dealResponse.data);
   } catch (error) {
@@ -752,12 +483,11 @@ app.post('/api/contacts/:contactId/ai-insight', async (req, res) => {
     const thermostatDeals = allDeals.filter(d => d.properties.pipeline === '829155852');
     const trialDeals = allDeals.filter(d => d.properties.pipeline !== '829155852');
     
-    // Get subscriptions
-    let subscriptions = [];
+    // Get pipeline stages to map stage IDs to labels
+    let pipelineStagesMap = {};
     try {
-      const objectType = '2-53381506';
-      const associationsResponse = await axios.get(
-        `${HUBSPOT_API_BASE}/crm/v3/objects/contacts/${contactId}/associations/${objectType}`,
+      const pipelinesRes = await axios.get(
+        `${HUBSPOT_API_BASE}/crm/v3/pipelines/deals`,
         {
           headers: {
             'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
@@ -766,26 +496,47 @@ app.post('/api/contacts/:contactId/ai-insight', async (req, res) => {
         }
       );
       
-      if (associationsResponse.data.results && associationsResponse.data.results.length > 0) {
-        const subscriptionIds = associationsResponse.data.results.map(r => r.id);
-        const subscriptionsResponse = await axios.post(
-          `${HUBSPOT_API_BASE}/crm/v3/objects/${objectType}/batch/read`,
-          {
-            inputs: subscriptionIds.map(id => ({ id })),
-            properties: ['hs_object_id', 'status', 'subscription_id', 'active_date', 'cancellation_date', 'trial_id']
-          },
-          {
-            headers: {
-              'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        subscriptions = subscriptionsResponse.data.results || [];
+      if (pipelinesRes.data.results && pipelinesRes.data.results.length > 0) {
+        // Get the default pipeline (usually the first one, or marked as default)
+        const defaultPipeline = pipelinesRes.data.results.find(p => p.archived === false) || pipelinesRes.data.results[0];
+        
+        if (defaultPipeline && defaultPipeline.stages) {
+          defaultPipeline.stages.forEach(stage => {
+            pipelineStagesMap[stage.id] = stage.label;
+          });
+        }
       }
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
+      console.error('Error fetching pipeline stages:', error);
     }
+    
+    // Categorize trial deals by stage
+    const convertedTrials = trialDeals.filter(deal => {
+      const stageId = deal.properties.dealstage;
+      const stageLabel = pipelineStagesMap[stageId] || '';
+      return stageLabel.toLowerCase().includes('converted');
+    });
+    
+    const trialEndedDeals = trialDeals.filter(deal => {
+      const stageId = deal.properties.dealstage;
+      const stageLabel = pipelineStagesMap[stageId] || '';
+      return stageLabel.toLowerCase().includes('ended') || stageLabel.toLowerCase().includes('trial ended');
+    });
+    
+    const cancelledDeals = trialDeals.filter(deal => {
+      const stageId = deal.properties.dealstage;
+      const stageLabel = pipelineStagesMap[stageId] || '';
+      return stageLabel.toLowerCase().includes('cancelled');
+    });
+    
+    const activeTrials = trialDeals.filter(deal => {
+      const stageId = deal.properties.dealstage;
+      const stageLabel = pipelineStagesMap[stageId] || '';
+      return stageLabel.toLowerCase().includes('active') && 
+             !stageLabel.toLowerCase().includes('converted') &&
+             !stageLabel.toLowerCase().includes('cancelled') &&
+             !stageLabel.toLowerCase().includes('ended');
+    });
     
     // Calculate metrics - get actual quantities from line items
     let hardwareCount = 0;
@@ -832,15 +583,17 @@ app.post('/api/contacts/:contactId/ai-insight', async (req, res) => {
       return sum + (parseFloat(deal.properties.amount || 0));
     }, 0);
     
-    const activeSubscriptions = subscriptions.filter(s => s.properties?.status?.toLowerCase() === 'active');
-    const cancelledSubscriptions = subscriptions.filter(s => s.properties?.status?.toLowerCase() === 'cancelled');
-    
-    const convertedTrials = trialDeals.filter(d => d.properties.converted_subscription_id);
-    const unconvertedTrials = trialDeals.filter(d => !d.properties.converted_subscription_id);
-    
     const totalTrialValue = trialDeals.reduce((sum, deal) => {
       return sum + (parseFloat(deal.properties.amount || 0));
     }, 0);
+    
+    // Determine subscription status based on deal stages
+    // Converted = active subscription (successful trial)
+    // Trial Ended = trial ended without subscription
+    // Cancelled = had subscription but cancelled it
+    const hasActiveSubscription = convertedTrials.length > 0 && cancelledDeals.length === 0;
+    const hasCancelledSubscription = cancelledDeals.length > 0;
+    const hasUnconvertedTrial = trialEndedDeals.length > 0;
     
     // Get dates
     const contactCreatedDate = contactData?.properties?.createdate || 'Unknown';
@@ -860,28 +613,32 @@ Hardware Purchases:
 - Total hardware value: $${totalHardwareValue.toFixed(2)}
 - Latest purchase date: ${latestHardwarePurchase || 'No purchases'}
 
-Subscription Status:
-- Active subscriptions: ${activeSubscriptions.length}
-- Cancelled subscriptions: ${cancelledSubscriptions.length}
-- Total subscriptions: ${subscriptions.length}
-
-Trial Activity:
+Trial & Subscription Status (based on deal stages):
 - Total trials: ${trialDeals.length}
-- Converted trials: ${convertedTrials.length}
-- Unconverted trials: ${unconvertedTrials.length}
+- Active trials: ${activeTrials.length}
+- Converted trials (active subscription): ${convertedTrials.length}
+- Trial ended (no subscription): ${trialEndedDeals.length}
+- Cancelled subscriptions: ${cancelledDeals.length}
 - Total trial value: $${totalTrialValue.toFixed(2)}
 - Latest trial date: ${latestTrialDate || 'No trials'}
+
+Subscription Health:
+${hasActiveSubscription ? '- ✅ HAS ACTIVE SUBSCRIPTION (deal stage: Converted)' : ''}
+${hasCancelledSubscription ? '- ❌ SUBSCRIPTION CANCELLED (deal stage: Cancelled)' : ''}
+${hasUnconvertedTrial ? '- ⚠️ TRIAL ENDED WITHOUT SUBSCRIPTION (deal stage: Trial Ended)' : ''}
+${!hasActiveSubscription && !hasCancelledSubscription && !hasUnconvertedTrial && trialDeals.length > 0 ? '- ⏳ Trial in progress' : ''}
+${trialDeals.length === 0 ? '- No trials yet' : ''}
 
 Key Dates:
 - Customer since: ${contactCreatedDate}
 - Days since last hardware purchase: ${latestHardwarePurchase ? Math.floor((new Date() - new Date(latestHardwarePurchase)) / (1000 * 60 * 60 * 24)) : 'N/A'}
 - Days since last trial: ${latestTrialDate ? Math.floor((new Date() - new Date(latestTrialDate)) / (1000 * 60 * 60 * 24)) : 'N/A'}
 
-Conversion Pattern:
-${convertedTrials.length > 0 ? `- Has converted ${convertedTrials.length} trial(s) to paid subscription` : '- No trial conversions yet'}
-${unconvertedTrials.length > 0 ? `- Has ${unconvertedTrials.length} unconverted trial(s)` : ''}
-${latestHardwarePurchase && !latestTrialDate ? '- Purchased hardware but has not started a trial' : ''}
-${latestTrialDate && unconvertedTrials.length > 0 ? '- Started trial but has not converted to paid subscription' : ''}
+Churn Risk Indicators:
+${hasCancelledSubscription ? '- HIGH RISK: Customer had a subscription but cancelled it' : ''}
+${hasUnconvertedTrial ? '- MEDIUM RISK: Customer completed trial but did not convert to subscription' : ''}
+${hasActiveSubscription ? '- LOW RISK: Customer has active subscription (converted trial)' : ''}
+${trialDeals.length === 0 && hardwareCount > 0 ? '- OPPORTUNITY: Customer has hardware but has not started a trial' : ''}
 `;
 
     const prompt = `${customerSummary}
@@ -896,10 +653,16 @@ Based on this customer data, provide a concise AI Customer Health Insight analys
 
 Focus on:
 - Their engagement level (hardware ownership, trial activity)
-- Conversion patterns (trial to subscription)
+- Deal stage analysis: Converted = active subscription (low churn risk), Trial Ended = no subscription (medium churn risk), Cancelled = cancelled subscription (high churn risk)
+- Conversion patterns (trial to subscription based on deal stages)
 - Time-based signals (recent activity vs. inactivity)
-- Risk factors (unconverted trials, no recent activity)
+- Risk factors based on deal stages (cancelled deals = high risk, trial ended = medium risk, converted = low risk)
 - Opportunities (upsell potential, re-engagement needs)
+
+IMPORTANT: Use the deal stage information to determine churn risk:
+- "Converted" stage = customer has active subscription, successful trial conversion (LOW churn risk)
+- "Trial Ended" stage = trial ended without converting to subscription (MEDIUM churn risk - opportunity to re-engage)
+- "Cancelled" stage = customer had subscription but cancelled it (HIGH churn risk - needs immediate attention)
 
 IMPORTANT: In your suggestedAction field, you MUST recommend specific HubSpot AI tools that sales and marketing teams can use to tactically execute on the suggestion. Examples include:
 - HubSpot AI Content Writer (for creating personalized content)

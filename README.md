@@ -34,12 +34,6 @@ npm install
    - `crm.objects.contacts.write`
    - `crm.objects.deals.read`
    - `crm.objects.deals.write`
-   - `crm.objects.products.read`
-   - `crm.objects.products.write`
-   - `crm.objects.line_items.read`
-   - `crm.objects.line_items.write`
-   - `crm.objects.custom.read`
-   - `crm.objects.custom.write`
 6. Click **Create app** and copy your access token
 
 #### 3. Get Your Gemini API Key
@@ -82,56 +76,6 @@ You should see:
 
 **To stop the server:** Press `Ctrl+C`
 
-#### 6. Set Up Breezy Subscription Creation
-
-**Important**: The Breezy Subscriptions displayed in the admin panel can be created in two ways:
-
-**Option A: HubSpot Workflows (Recommended for API Call Management)**
-- Using HubSpot workflows to create subscriptions helps manage API call limits
-- Workflows run server-side in HubSpot, reducing the number of API calls from your application
-- This is the recommended approach if you're concerned about HubSpot API rate limits
-- Set up a workflow in HubSpot that creates subscription records in the custom "Breezy Subscriptions" object
-
-**Option B: Direct API Calls**
-- If preferred, you can create subscriptions directly via API calls from your application
-- This gives you more control but uses more API calls
-- You would need to add an endpoint to create subscription records using the HubSpot Custom Objects API
-- Example: `POST /crm/v3/objects/[object ID]` (using object ID `2-53381506`)
-
-**For this POC, I demonstrate Option A (workflows)** to show how you can reduce API call volume. In production, choose the approach that best fits your needs, rate limits, and control requirements.
-
-**Steps to Create the Workflow (Option A):**
-
-1. **Navigate to Workflows**:
-   - Go to **Automation** → **Workflows** in your HubSpot account
-   - Click **Create workflow**
-
-2. **Set Workflow Trigger**:
-   - Choose **Deal-based workflow**
-   - Set trigger: When a deal moves to "Converted" stage (or your trial conversion stage)
-
-3. **Add Action: Create Record**:
-   - Add action: **Create record**
-   - Select object: **Breezy Subscription**
-   - Map properties:
-     - `status`: Set to "Active"
-     - `active_date`: Set to current date/time
-     - `subscription_id`: Generate or use a unique identifier
-   - Associate the subscription to the contact from the deal
-
-4. **Activate the Workflow**:
-   - Review and activate the workflow
-   - Test by converting a trial deal to verify subscription creation
-
-**Note**: For testing purposes, you can also manually create Breezy Subscription records in HubSpot:
-- Go to **Objects** → **Breezy Subscriptions**
-- Create a new record
-- Associate to Contact and (optional) Trial Deal 
-- Set `status` to "Active" or "Cancelled"
-- Set appropriate dates
-
-The subscription will then appear in the admin panel table for the associated contact.
-
 #### 7. Access the Application
 
 Open your browser and navigate to:
@@ -144,23 +88,19 @@ http://localhost:3001
 
 1. **Create a Contact:**
    - Fill out the "Sync Customer to HubSpot" form
-   - Optionally specify "Number of Thermostats Purchased"
    - Submit the form
    - Verify the contact appears in the contacts table
-   - If thermostats purchased, verify a deal is created with basic information
 
 2. **Create a Trial:**
    - Select an existing contact from the dropdown
-   - Fill in trial details (name, value, billing frequency, stage)
+   - Fill in trial details (name, value, stage)
    - Submit the form
    - Verify the trial appears in the "Trials" column for that contact
 
 3. **View Data:**
    - The contacts table displays:
      - Contact information (name, email, phone)
-     - Thermostat purchases (quantity and total amount)
      - Trials (deal name, amount, stage, ID)
-     - **Breezy Subscriptions** (status, dates, trial ID) - *These are created by HubSpot workflows when trials convert*
      - AI Customer Health insights (optional)
 
 4. **Test AI Insights:**
@@ -171,6 +111,7 @@ http://localhost:3001
 5. **Test Error Handling:**
    - Try creating a contact with an existing email address
    - Verify you receive a clear error message about duplicate contacts
+   - Verify you can only create one trial per contact
 
 ---
 
@@ -180,22 +121,17 @@ http://localhost:3001
 
 This proof-of-concept demonstrates an integration between Breezy's smart home platform and HubSpot CRM. The application simulates an admin panel that Breezy's team would use to:
 
-1. **Sync Customer Data**: Automatically create HubSpot contacts when customers purchase thermostats or sign up for trials
-2. **Track Hardware Purchases**: Create deals in HubSpot's "Hardware Pipeline" with associated line items for thermostat purchases
-3. **Manage Trial Signups**: Create trial deals with line items that include billing frequency and pricing information
-4. **Monitor Subscriptions**: Display subscription status from HubSpot's custom "Breezy Subscriptions" object
+1. **Sync Customer Data**: Automatically create HubSpot contacts when customers create accounts
+3. **Manage Trial Signups**: Create trial deals to track which trials have converted to a paid subscription
 5. **AI-Powered Insights**: Generate customer health insights using Google Gemini AI, with recommendations for HubSpot AI tools
-
 
 
 ### Key Features
 
-- **Contact Management**: Create and view contacts. Optionally include Thermostat purchases which create deals and reflect in the table.
-- **Deal Tracking**: Separate pipelines for hardware purchases (Hardware Pipeline) and trials (Default Pipeline)
+- **Contact Management**: Create and view contacts
 - **Line Item Integration**: Automatic creation of line items for thermostats and premium subscriptions
-- **Custom Object Integration**: Read subscription data from HubSpot custom objects
 - **AI Customer Health**: Generate insights with specific HubSpot AI tool recommendations
-- **Error Handling**: User-friendly error messages for common issues (e.g., duplicate emails)
+- **Error Handling**: User-friendly error messages for common issues (e.g., duplicate emails, multiple trials)
 
 ### Technology Stack
 
@@ -222,17 +158,17 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 1. **Code Development and Implementation**:
    - Used Cursor AI as the primary coding assistant throughout the entire project
    - Generated initial code structure for Express.js backend and frontend components
-   - Implemented HubSpot API integrations (contacts, deals, line items, custom objects)
+   - Implemented HubSpot API integrations (contacts, deals)
    - Built AI insight feature integration with Gemini API
    - Refactored codebase structure (separating CSS/JS files)
-   - Debugged API errors and integration issues (line item associations, duplicate email handling, pipeline stage loading)
+   - Debugged API errors and integration issues (duplicate email handling, pipeline stage loading)
    - Implemented error handling and user feedback mechanisms
    - Created responsive UI components and styling
    - Created searchable dropdown functionality for contact selection
 
 2. **Documentation and Diagram Generation**:
    - Used Google Gemini to generate Mermaid diagram code for the Entity Relationship Diagram (ERD)
-   - Gemini helped structure the complex relationships between HubSpot objects (Contacts, Deals, Line Items, Products, Custom Objects)
+   - Gemini helped structure the complex relationships between HubSpot objects (Contacts, Deals)
    - Mermaid rendered the diagram into a visual representation of the data architecture
    - Used Cursor AI to help write and structure the README documentation
    - Generated code examples and explanations for documentation
@@ -249,13 +185,13 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 **How AI Helped:**
 - **Rapid Development**: Cursor AI significantly accelerated development by generating boilerplate code, API integration patterns, and common functionality
-- **Debugging Support**: When encountering errors (like line item association issues, API 404s, or parsing problems), Cursor helped identify root causes and suggest fixes
+- **Debugging Support**: When encountering errors (API 404s, parsing problems), Cursor helped identify root causes and suggest fixes
 - **Code Refactoring**: AI assisted in restructuring code (separating CSS/JS files) and improving code organization
 - **Documentation Generation**: Gemini and Cursor helped generate comprehensive documentation, ERD diagrams, and code explanations
 - **Problem Solving**: AI provided alternative approaches when initial implementations didn't work (e.g., trying different API endpoints for associations)
 - **Time Savings**: Reduced time spent on repetitive tasks, allowing focus on higher-level architecture and business logic
 
-**Limitations and Challenges:**
+**Limitations and Challenges:** 
 - **Missing Business Requirements**: A significant challenge was not knowing the customer's specific business requirements and not being able to conduct a full discovery session/s. This required making assumptions about Breezy's needs, workflows, and priorities, which may not align with their actual requirements
 - **Diagram Generation Accuracy**: Gemini did not generate Mermaid diagram code accurately for the ERD. The relationship nodes and connections required manual adjustment to correctly represent the HubSpot data architecture
 - **Code Review Needed**: Generated code sometimes required review and adjustment to match project requirements
@@ -282,7 +218,7 @@ This proof-of-concept demonstrates an integration between Breezy's smart home pl
 
 ### Entity Relationship Diagram (ERD)
 
-![HubSpot Data Architecture ERD](assets/images/SA_assessment_ADVANCED_ERD.png)
+![HubSpot Data Architecture ERD](assets/images/Basic_ERD_SA_Tech_Assessment.png)
 
 *This ERD was created using Google Gemini to generate Mermaid diagram code, which was then rendered into the visual diagram shown above. Gemini helped structure the complex relationships between HubSpot objects including Contacts, Deals (Trials and Hardware Purchases), Line Items, Products, and the Breezy Subscriptions custom object.*
 
